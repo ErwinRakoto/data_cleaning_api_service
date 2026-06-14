@@ -216,3 +216,7 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Customs :
+data_example/Titanic-Dataset.csv
+data_example/Titanic.json
