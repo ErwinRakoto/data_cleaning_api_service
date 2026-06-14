@@ -1,18 +1,34 @@
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 
+from passenger.schemas import (
+    CleanResponse,
+    ErrorResponse,
+    PartialResponse,
+    PassengerRaw,
+)
 from passenger.services import PassengerService, clean_passenger
 
 router = APIRouter()
 
 
-@router.post("/passenger")
-async def dataset_cleaning_v1(raw: list[dict] | dict) -> JSONResponse:
+@router.post(
+    "/passenger",
+    responses={
+        200: {"model": CleanResponse, "description": "All records valid"},
+        207: {
+            "model": PartialResponse,
+            "description": "Partial success — some records failed",
+        },
+        422: {"model": ErrorResponse, "description": "All records failed validation"},
+    },
+)
+async def dataset_cleaning_v1(raw: list[PassengerRaw] | PassengerRaw) -> JSONResponse:
     """
     Clean and validate a list of passenger data
 
-    each record is validated or not imdependently.
-    It accepet a list of passager data or a single record
+    each record is validated or not independently.
+    It accepts a list of passenger data or a single record
 
     Args:
         raw: One or a list of passenger data
@@ -25,9 +41,10 @@ async def dataset_cleaning_v1(raw: list[dict] | dict) -> JSONResponse:
 
     """
     items = raw if isinstance(raw, list) else [raw]
+    dicts = [item.model_dump(exclude_none=True) for item in items]
 
     results, failures = [], []
-    for item in items:
+    for item in dicts:
         cleaned, error = clean_passenger(item)
         if cleaned is not None:
             results.append(cleaned)
@@ -45,9 +62,19 @@ async def dataset_cleaning_v1(raw: list[dict] | dict) -> JSONResponse:
     return JSONResponse(status_code=status, content=payload)
 
 
-@router.post("/passenger_v2")
+@router.post(
+    "/passenger_v2",
+    responses={
+        200: {"model": CleanResponse, "description": "All records valid"},
+        207: {
+            "model": PartialResponse,
+            "description": "Partial success — some records failed",
+        },
+        422: {"model": ErrorResponse, "description": "All records failed validation"},
+    },
+)
 async def dataset_cleaning_v2(
-    raw: list[dict] | dict,
+    raw: list[PassengerRaw] | PassengerRaw,
     service: PassengerService = Depends(PassengerService),  # noqa: B008
 ) -> JSONResponse:
     """
@@ -70,6 +97,7 @@ async def dataset_cleaning_v2(
 
     """
     items = raw if isinstance(raw, list) else [raw]
-    results, failures = service.process(items)
+    dicts = [item.model_dump(exclude_none=True) for item in items]
+    results, failures = service.process(dicts)
     payload, status = service.build_response(results, failures)
     return JSONResponse(status_code=status, content=payload)

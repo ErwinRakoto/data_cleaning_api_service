@@ -1,13 +1,28 @@
-from typing import Literal
+from typing import Any, Literal
 
-from pydantic import BaseModel, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 
 from passenger.utils import normalize_title, parse_name
 
 
+class PassengerRaw(BaseModel):
+    model_config = ConfigDict(
+        extra="allow",
+        alias_generator=lambda x: x.lower(),
+        populate_by_name=True,
+    )
+
+    Name: str | None = None
+    Age: float | None = None
+    Pclass: Literal[1, 2, 3] | None = None
+    # fixme : Pclass: int | None = None + fare
+    Fare: float | None = None
+    Sex: str | None = None
+
+
 class Passenger(BaseModel):
     Name: str
-    Age: float
+    Age: float  # fixme : Optional[float] = None ?
     Pclass: Literal[1, 2, 3]
     Fare: float
     Sex: str | None = None
@@ -60,3 +75,26 @@ class Passenger(BaseModel):
         self.First_Name = first_name
         self.Title_Normalized = normalize_title(title, self.Sex)
         return self
+
+
+class FieldError(BaseModel):
+    field: str
+    message: str
+
+
+class PassengerFailure(BaseModel):
+    input: dict[str, Any]
+    errors: list[FieldError] | str
+
+
+class CleanResponse(BaseModel):
+    cleaned: list[Passenger]
+
+
+class PartialResponse(BaseModel):
+    cleaned: list[Passenger]
+    warnings: list[PassengerFailure]
+
+
+class ErrorResponse(BaseModel):
+    detail: list[PassengerFailure]
